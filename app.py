@@ -28,7 +28,7 @@ def stream_data():
             while True:
                 buffer = scope.record(device_data, channel=1)
                 socketio.emit('update_data', {'voltage_data': buffer})
-                sleep(0.1)  # Adjust delay as needed
+                sleep(0.01)  # Adjust delay as needed
 
     except error as e:
         print(e)
