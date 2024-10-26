@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <title>Live Voltage Plot</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link rel="icon" href="data:,"> <!-- Placeholder favicon -->
 </head>
 <body>
     <canvas id="liveChart" width="800" height="400"></canvas>
@@ -35,11 +37,14 @@
                 animation: false,
                 scales: {
                     x: {
-                        type: 'linear',
+                        type: 'time',  // Use 'time' type for real-time plotting
                         position: 'bottom',
                         title: {
                             display: true,
                             text: 'Time (ms)'
+                        },
+                        time: {
+                            unit: 'second'  // Set time unit to seconds
                         }
                     },
                     y: {
@@ -67,19 +72,20 @@
             const voltageData = data.voltage_data;
             const timestamp = Date.now();
 
-            voltageData.forEach((voltage, index) => {
-                // Add time and voltage data to the chart
-                chart.data.labels.push(timestamp + index * 10);  // Incremented timestamp for each data point
-                chart.data.datasets[0].data.push(voltage);
-            });
+            // Prepare new data and labels arrays
+            const newLabels = voltageData.map((_, index) => new Date(timestamp + index * 10));
+            const newData = [...chart.data.datasets[0].data, ...voltageData];
+
+            // Append new data and labels to the chart
+            chart.data.labels = [...chart.data.labels, ...newLabels];
+            chart.data.datasets[0].data = newData;
 
             // Limit the dataset to the latest 300 data points
             if (chart.data.labels.length > 300) {
-                chart.data.labels.splice(0, voltageData.length);
-                chart.data.datasets[0].data.splice(0, voltageData.length);
+                chart.data.labels.splice(0, chart.data.labels.length - 300);
+                chart.data.datasets[0].data.splice(0, chart.data.datasets[0].data.length - 300);
             }
 
-            // Update the chart with new data
             chart.update();
         });
     </script>
