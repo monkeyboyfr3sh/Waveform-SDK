@@ -22,32 +22,50 @@ try:
         # wait 1 second to allow signal generation to stabilize
         sleep(1)
 
+        # Calculate the maximum number of points to store for 3 seconds of data
+        max_points = int(3 * scope.data.sampling_frequency)  # adjust for sampling frequency
+
         # Initialize the plot
         fig, ax = plt.subplots()
         line, = ax.plot([], [], lw=2)
         ax.set_xlabel("time [ms]")
         ax.set_ylabel("voltage [V]")
 
+        # Initialize data lists for time and voltage with dummy starting data
+        time_data = [0]
+        voltage_data = [0]
+
         def init():
             """Initialize the plot for updating."""
-            ax.set_xlim(0, 10)  # Set a range for x-axis; adjust as necessary
+            ax.set_xlim(0, 3000)  # 3 seconds in ms
             ax.set_ylim(-5, 5)  # Set range based on expected voltage range
+            line.set_data(time_data, voltage_data)  # Set initial data
             return line,
 
         def update(frame):
             """Update function to fetch and display new data."""
-            buffer = scope.record(device_data, channel=1)  # Get live data from scope
-            length = len(buffer)
-            if length > 10000:
-                length = 10000
-            buffer = buffer[0:length]
+            global time_data, voltage_data  # declare as global to modify outside variables
 
-            # Generate time data for the x-axis
-            time = [i * 1e03 / scope.data.sampling_frequency for i in range(len(buffer))]
+            buffer = scope.record(device_data, channel=1)  # Get live data from scope
+            num_samples = len(buffer)
+
+            # Generate time data for new samples in ms
+            new_time_data = [i * 1e03 / scope.data.sampling_frequency for i in range(num_samples)]
+            if time_data:
+                new_time_data = [t + time_data[-1] + 1e03 / scope.data.sampling_frequency for t in new_time_data]
+
+            # Append new data
+            time_data.extend(new_time_data)
+            voltage_data.extend(buffer)
+
+            # Trim data to maintain only the last 3 seconds
+            if len(time_data) > max_points:
+                time_data = time_data[-max_points:]
+                voltage_data = voltage_data[-max_points:]
 
             # Update the line data
-            line.set_data(time, buffer)
-            ax.set_xlim(time[0], time[-1])  # Update x-axis limits
+            line.set_data(time_data, voltage_data)
+            ax.set_xlim(time_data[0], time_data[-1])  # Update x-axis limits to show rolling window
             return line,
 
         # Create the animation object
