@@ -1,9 +1,8 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Data Plot</title>
+    <title>Live Voltage Plot</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -11,30 +10,57 @@
     <canvas id="liveChart" width="800" height="400"></canvas>
 
     <script>
-        // Connect to the Flask SocketIO server
-        const socket = io.connect('http://localhost:5000');  // Ensure correct port if running Flask on non-default
+        // Initialize socket connection
+        const socket = io.connect('http://localhost:5000');
 
-        // Initialize Chart.js
-        const ctx = document.getElementById('liveChart').getContext('2d');
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Voltage',
-                    data: [],
+        // Set up the chart data and configuration
+        const data = {
+            labels: [],  // Empty labels initially, to be filled dynamically
+            datasets: [
+                {
+                    label: 'Voltage Data',
+                    data: [],  // Empty dataset initially
                     borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     borderWidth: 2,
-                    fill: false
-                }]
-            },
+                }
+            ]
+        };
+
+        const config = {
+            type: 'line',
+            data: data,
             options: {
+                responsive: true,
+                animation: false,
                 scales: {
-                    x: { type: 'linear', position: 'bottom' },
-                    y: { beginAtZero: true }
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        title: {
+                            display: true,
+                            text: 'Time (ms)'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        suggestedMin: -5,
+                        suggestedMax: 5,
+                        title: {
+                            display: true,
+                            text: 'Voltage (V)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' },
+                    title: { display: true, text: 'Real-Time Voltage Plot' }
                 }
             }
-        });
+        };
+
+        const ctx = document.getElementById('liveChart').getContext('2d');
+        const chart = new Chart(ctx, config);
 
         // Listen for 'update_data' events from the server
         socket.on('update_data', (data) => {
@@ -42,15 +68,18 @@
             const timestamp = Date.now();
 
             voltageData.forEach((voltage, index) => {
-                chart.data.labels.push(timestamp + index);
+                // Add time and voltage data to the chart
+                chart.data.labels.push(timestamp + index * 10);  // Incremented timestamp for each data point
                 chart.data.datasets[0].data.push(voltage);
             });
 
+            // Limit the dataset to the latest 300 data points
             if (chart.data.labels.length > 300) {
                 chart.data.labels.splice(0, voltageData.length);
                 chart.data.datasets[0].data.splice(0, voltageData.length);
             }
 
+            // Update the chart with new data
             chart.update();
         });
     </script>
