@@ -65,7 +65,12 @@
                 },
                 plugins: {
                     legend: { position: 'top' },
-                    title: { display: true, text: 'Real-Time Voltage Plot' }
+                    title: { display: true, text: 'Real-Time Voltage Plot' },
+                    decimation: {
+                        enabled: true,
+                        algorithm: 'min-max',  // Min-max downsampling for performance
+                        samples: 50            // Only keep 50 samples for each segment
+                    }
                 }
             }
         };
@@ -77,16 +82,18 @@
         function addDataToBuffer(newVoltageData) {
             const interval = 10; // Assuming each data point is 10ms apart
 
-            newVoltageData.forEach(value => {
-                // Append new data and timestamp to the buffers
-                voltageDataBuffer.push(value);
-                timestampBuffer.push(new Date(lastTimestamp));
-                lastTimestamp += interval; // Increment timestamp by the interval
+            newVoltageData.forEach((value, index) => {
+                // Only add every nth data point (sampling for performance)
+                if (index % 100 === 0) {  // Adjust `2` to sample at different frequencies
+                    voltageDataBuffer.push(value);
+                    timestampBuffer.push(new Date(lastTimestamp));
+                    lastTimestamp += interval * 100; // Skip ahead for sampled interval
 
-                // Ensure buffers do not exceed max width
-                if (voltageDataBuffer.length > maxWidth) {
-                    voltageDataBuffer.shift();
-                    timestampBuffer.shift();
+                    // Ensure buffers do not exceed max width
+                    if (voltageDataBuffer.length > maxWidth) {
+                        voltageDataBuffer.shift();
+                        timestampBuffer.shift();
+                    }
                 }
             });
 
