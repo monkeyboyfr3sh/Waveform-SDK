@@ -12,14 +12,16 @@
     <canvas id="liveChart" width="800" height="400"></canvas>
 
     <script>
+        // Configurable sliding window duration in milliseconds
+        const windowDuration = 5000; // 5 seconds
+        const updateInterval = 500; // Update chart every 500ms for performance
+
         // Initialize socket connection
         const socket = io.connect('http://localhost:5000');
 
-        // Set up FIFO buffers and initial timestamp
-        const maxWidth = 30000; // Max number of data points
+        // Set up buffers
         const voltageDataBuffer = [];
         const timestampBuffer = [];
-        let lastTimestamp = Date.now(); // Initialize with the current timestamp
 
         // Set up the chart data and configuration
         const data = {
@@ -43,24 +45,16 @@
                 animation: false,
                 scales: {
                     x: {
-                        type: 'time',  // Use 'time' type for real-time plotting
+                        type: 'time',
                         position: 'bottom',
-                        title: {
-                            display: true,
-                            text: 'Time (ms)'
-                        },
-                        time: {
-                            unit: 'second'  // Set time unit to seconds
-                        }
+                        title: { display: true, text: 'Time (ms)' },
+                        time: { unit: 'second' }
                     },
                     y: {
                         beginAtZero: true,
                         suggestedMin: -5,
                         suggestedMax: 5,
-                        title: {
-                            display: true,
-                            text: 'Voltage (V)'
-                        }
+                        title: { display: true, text: 'Voltage (V)' }
                     }
                 },
                 plugins: {
@@ -68,8 +62,8 @@
                     title: { display: true, text: 'Real-Time Voltage Plot' },
                     decimation: {
                         enabled: true,
-                        algorithm: 'min-max',  // Min-max downsampling for performance
-                        samples: 50            // Only keep 50 samples for each segment
+                        algorithm: 'min-max',
+                        samples: 50
                     }
                 }
             }
@@ -78,29 +72,33 @@
         const ctx = document.getElementById('liveChart').getContext('2d');
         const chart = new Chart(ctx, config);
 
+        let lastUpdateTime = Date.now();
+
         // Function to add data to the FIFO buffer and update the chart
         function addDataToBuffer(newVoltageData) {
-            const interval = 10; // Assuming each data point is 10ms apart
+            const currentTime = Date.now(); // Get the current timestamp
 
             newVoltageData.forEach((value, index) => {
-                // Only add every nth data point (sampling for performance)
                 if (index % 100 === 0) {  // Adjust `2` to sample at different frequencies
-                    voltageDataBuffer.push(value);
-                    timestampBuffer.push(new Date(lastTimestamp));
-                    lastTimestamp += interval * 100; // Skip ahead for sampled interval
+                    // Add current data point and timestamp
+                voltageDataBuffer.push(value);
+                timestampBuffer.push(new Date(currentTime));
 
-                    // Ensure buffers do not exceed max width
-                    if (voltageDataBuffer.length > maxWidth) {
-                        voltageDataBuffer.shift();
-                        timestampBuffer.shift();
-                    }
+                // Remove old data outside the window duration
+                while ((Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
+                    voltageDataBuffer.shift();
+                    timestampBuffer.shift();
                 }
-            });
+            }
+        });
 
-            // Update chart data from the buffers
-            chart.data.labels = [...timestampBuffer];
-            chart.data.datasets[0].data = [...voltageDataBuffer];
-            chart.update();
+            // Throttle chart updates for better performance
+            if (Date.now() - lastUpdateTime >= updateInterval) {
+                chart.data.labels = [...timestampBuffer];
+                chart.data.datasets[0].data = [...voltageDataBuffer];
+                chart.update();
+                lastUpdateTime = Date.now();
+            }
         }
 
         // Listen for 'update_data' events from the server
