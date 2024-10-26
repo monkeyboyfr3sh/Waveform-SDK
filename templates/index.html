@@ -1,0 +1,58 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Data Plot</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <canvas id="liveChart" width="800" height="400"></canvas>
+
+    <script>
+        // Connect to the Flask SocketIO server
+        const socket = io.connect('http://localhost:5000');  // Ensure correct port if running Flask on non-default
+
+        // Initialize Chart.js
+        const ctx = document.getElementById('liveChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Voltage',
+                    data: [],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    x: { type: 'linear', position: 'bottom' },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        // Listen for 'update_data' events from the server
+        socket.on('update_data', (data) => {
+            const voltageData = data.voltage_data;
+            const timestamp = Date.now();
+
+            voltageData.forEach((voltage, index) => {
+                chart.data.labels.push(timestamp + index);
+                chart.data.datasets[0].data.push(voltage);
+            });
+
+            if (chart.data.labels.length > 300) {
+                chart.data.labels.splice(0, voltageData.length);
+                chart.data.datasets[0].data.splice(0, voltageData.length);
+            }
+
+            chart.update();
+        });
+    </script>
+</body>
+</html>
