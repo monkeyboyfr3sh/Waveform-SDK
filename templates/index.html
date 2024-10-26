@@ -15,6 +15,12 @@
         // Initialize socket connection
         const socket = io.connect('http://localhost:5000');
 
+        // Set up FIFO buffers and initial timestamp
+        const maxWidth = 30000; // Max number of data points
+        const voltageDataBuffer = [];
+        const timestampBuffer = [];
+        let lastTimestamp = Date.now(); // Initialize with the current timestamp
+
         // Set up the chart data and configuration
         const data = {
             labels: [],  // Empty labels initially, to be filled dynamically
@@ -67,26 +73,32 @@
         const ctx = document.getElementById('liveChart').getContext('2d');
         const chart = new Chart(ctx, config);
 
+        // Function to add data to the FIFO buffer and update the chart
+        function addDataToBuffer(newVoltageData) {
+            const interval = 10; // Assuming each data point is 10ms apart
+
+            newVoltageData.forEach(value => {
+                // Append new data and timestamp to the buffers
+                voltageDataBuffer.push(value);
+                timestampBuffer.push(new Date(lastTimestamp));
+                lastTimestamp += interval; // Increment timestamp by the interval
+
+                // Ensure buffers do not exceed max width
+                if (voltageDataBuffer.length > maxWidth) {
+                    voltageDataBuffer.shift();
+                    timestampBuffer.shift();
+                }
+            });
+
+            // Update chart data from the buffers
+            chart.data.labels = [...timestampBuffer];
+            chart.data.datasets[0].data = [...voltageDataBuffer];
+            chart.update();
+        }
+
         // Listen for 'update_data' events from the server
         socket.on('update_data', (data) => {
-            const voltageData = data.voltage_data;
-            const timestamp = Date.now();
-
-            // Prepare new data and labels arrays
-            const newLabels = voltageData.map((_, index) => new Date(timestamp + index * 10));
-            const newData = [...chart.data.datasets[0].data, ...voltageData];
-
-            // Append new data and labels to the chart
-            chart.data.labels = [...chart.data.labels, ...newLabels];
-            chart.data.datasets[0].data = newData;
-
-            // Limit the dataset to the latest 300 data points
-            if (chart.data.labels.length > 300) {
-                chart.data.labels.splice(0, chart.data.labels.length - 300);
-                chart.data.datasets[0].data.splice(0, chart.data.datasets[0].data.length - 300);
-            }
-
-            chart.update();
+            addDataToBuffer(data.voltage_data);
         });
     </script>
 </body>
