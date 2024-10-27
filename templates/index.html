@@ -133,7 +133,7 @@
             if (isPaused || newVoltageDataCh1.length === 0 || newVoltageDataCh2.length === 0 || newTimestamps.length === 0) return;
 
             newVoltageDataCh1.forEach((value, index) => {
-                if ((index % 1024) === 0) {
+                if ((index % 2048) === 0) {
                     const timestamp = new Date(newTimestamps[1] * 1000 + Date.now());
                     voltageDataBufferCh1.push(value);
                     voltageDataBufferCh2.push(newVoltageDataCh2[index]);

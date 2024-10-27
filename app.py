@@ -12,7 +12,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for test
 
 # Global variable for controlling the data stream thread
 data_stream_thread = None
-session_count = 1  # Default value, can be updated dynamically
+session_count = 5  # Default value, can be updated dynamically
 
 @app.route('/')
 def index():
