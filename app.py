@@ -12,7 +12,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for test
 
 # Global variable for controlling the data stream thread
 data_stream_thread = None
-session_count = 4  # Default value, can be updated dynamically
+session_count = 2  # Default value, can be updated dynamically
 
 @app.route('/')
 def index():
@@ -20,14 +20,12 @@ def index():
 
 @socketio.on('set_session_count')
 def set_session_count(data):
-    """Set the number of sessions to accumulate before emitting data."""
     global session_count
     session_count = data.get('session_count', 10)  # Default to 2 if not specified
     emit('session_count_updated', {'session_count': session_count})
 
 
 def stream_data():
-    """Thread function to continuously stream data from the device."""
     try:
         device_data = device.open()
         if device_data.name != "Digital Discovery":
@@ -37,33 +35,35 @@ def stream_data():
             sample_interval = 1 / sample_rate  # Interval in seconds per sample
 
             wavegen.generate(device_data, channel=1, function=wavegen.function.sine, offset=0, frequency=10e03, amplitude=2)
+            wavegen.generate(device_data, channel=2, function=wavegen.function.square, offset=0, frequency=10e03, amplitude=2)
             sleep(1)
 
-            buffer_accumulated = []
+            buffer_accumulated_ch1 = []
+            buffer_accumulated_ch2 = []
             timestamps_accumulated = []
 
             while True:
                 for _ in range(session_count):
-                    buffer = scope.record(device_data, channel=1)
+                    buffer_ch1 = scope.record(device_data, channel=1)
+                    buffer_ch2 = scope.record(device_data, channel=2)
                     
-                    # Generate timestamps for each sample in the buffer
-                    num_samples = len(buffer)
-                    timestamps = list(np.arange(num_samples) * sample_interval)  # Generate timestamps in seconds
+                    num_samples = len(buffer_ch1)
+                    timestamps = list(np.arange(num_samples) * sample_interval)
 
-                    # Accumulate data
-                    buffer_accumulated.extend(buffer)
+                    buffer_accumulated_ch1.extend(buffer_ch1)
+                    buffer_accumulated_ch2.extend(buffer_ch2)
                     timestamps_accumulated.extend(timestamps)
 
-                    sleep(0.001)  # Adjust delay as needed
+                    sleep(0.0001)
 
-                # Emit accumulated data after `session_count` recordings
                 socketio.emit('update_data', {
-                    'voltage_data': buffer_accumulated,
+                    'voltage_data_ch1': buffer_accumulated_ch1,
+                    'voltage_data_ch2': buffer_accumulated_ch2,
                     'timestamps': timestamps_accumulated
                 })
 
-                # Clear the accumulated data
-                buffer_accumulated.clear()
+                buffer_accumulated_ch1.clear()
+                buffer_accumulated_ch2.clear()
                 timestamps_accumulated.clear()
 
     except error as e:
@@ -81,4 +81,4 @@ def handle_connect():
 
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)  # Use SocketIO's `run` method
+    socketio.run(app, debug=True)

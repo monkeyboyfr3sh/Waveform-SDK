@@ -6,7 +6,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <link rel="icon" href="data:,"> <!-- Placeholder favicon -->
     <style>
         body {
             background-color: #121212;
@@ -24,26 +23,30 @@
     <canvas id="liveChart" width="800" height="400"></canvas>
 
     <script>
-        // Configurable sliding window duration in milliseconds
-        const windowDuration = 5000; // 5 seconds
-        const updateInterval = 10; // Update chart every 500ms for performance
+        const windowDuration = 5000;
+        const updateInterval = 10;
 
-        // Initialize socket connection
         const socket = io.connect('http://localhost:5000');
 
-        // Set up buffers
-        const voltageDataBuffer = [];
+        const voltageDataBufferCh1 = [];
+        const voltageDataBufferCh2 = [];
         const timestampBuffer = [];
 
-        // Set up the chart data and configuration
         const data = {
-            labels: [],  // Empty labels initially, to be filled dynamically
+            labels: [],
             datasets: [
                 {
-                    label: 'Voltage Data',
-                    data: [],  // Empty dataset initially
+                    label: 'Voltage Data Channel 1',
+                    data: [],
                     borderColor: 'rgba(75, 192, 192, 1)',
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                },
+                {
+                    label: 'Voltage Data Channel 2',
+                    data: [],
+                    borderColor: 'rgba(255, 206, 86, 1)', // Yellow color for channel 2
+                    backgroundColor: 'rgba(255, 206, 86, 0.2)',
                     borderWidth: 2,
                 }
             ]
@@ -97,18 +100,19 @@
 
         let lastUpdateTime = Date.now();
 
-        // Function to add data to the FIFO buffer and update the chart
-        function addDataToBuffer(newVoltageData, newTimestamps) {
-            if (newVoltageData.length === 0 || newTimestamps.length === 0) return;
+        function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps) {
+            if (newVoltageDataCh1.length === 0 || newVoltageDataCh2.length === 0 || newTimestamps.length === 0) return;
 
-            newVoltageData.forEach((value, index) => {
+            newVoltageDataCh1.forEach((value, index) => {
                 if ((index % 1024) === 0) {
-                    const timestamp = new Date(newTimestamps[1] * 1000 + Date.now()); // Convert to milliseconds
-                    voltageDataBuffer.push(value);
+                    const timestamp = new Date(newTimestamps[1] * 1000 + Date.now());
+                    voltageDataBufferCh1.push(value);
+                    voltageDataBufferCh2.push(newVoltageDataCh2[index]);
                     timestampBuffer.push(timestamp);
 
                     while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
-                        voltageDataBuffer.shift();
+                        voltageDataBufferCh1.shift();
+                        voltageDataBufferCh2.shift();
                         timestampBuffer.shift();
                     }
                 }
@@ -116,15 +120,15 @@
 
             if (Date.now() - lastUpdateTime >= updateInterval) {
                 chart.data.labels = [...timestampBuffer];
-                chart.data.datasets[0].data = [...voltageDataBuffer];
+                chart.data.datasets[0].data = [...voltageDataBufferCh1];
+                chart.data.datasets[1].data = [...voltageDataBufferCh2];
                 chart.update();
                 lastUpdateTime = Date.now();
             }
         }
 
-        // Listen for 'update_data' events from the server
         socket.on('update_data', (data) => {
-            addDataToBuffer(data.voltage_data, data.timestamps);
+            addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps);
         });
     </script>
 </body>
