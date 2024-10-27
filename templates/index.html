@@ -35,7 +35,7 @@
     <button id="toggleButton">Pause</button>
 
     <script>
-        const windowDuration = 100; // 10 seconds display window
+        const windowDuration = 1000; // 10 seconds display window
         const updateInterval = 10; // Update chart every 100ms
 
         // Colors for each channel
@@ -175,7 +175,7 @@
 
         socket.on('update_data', (data) => {
             console.debug("Received data from server:", data);
-            addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps, 1);
+            addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps, 256);
         });
     </script>
 </body>
