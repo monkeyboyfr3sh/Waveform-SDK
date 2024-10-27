@@ -7,6 +7,18 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <link rel="icon" href="data:,"> <!-- Placeholder favicon -->
+    <style>
+        body {
+            background-color: #121212;
+            color: #FFFFFF;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+    </style>
 </head>
 <body>
     <canvas id="liveChart" width="800" height="400"></canvas>
@@ -47,19 +59,30 @@
                     x: {
                         type: 'time',
                         position: 'bottom',
-                        title: { display: true, text: 'Time (ms)' },
-                        time: { unit: 'second' }
+                        title: { display: true, text: 'Time (ms)', color: '#FFFFFF' },
+                        time: { unit: 'second' },
+                        ticks: { color: '#B0B0B0' },
+                        grid: { color: '#333333' }
                     },
                     y: {
                         beginAtZero: true,
                         suggestedMin: -5,
                         suggestedMax: 5,
-                        title: { display: true, text: 'Voltage (V)' }
+                        title: { display: true, text: 'Voltage (V)', color: '#FFFFFF' },
+                        ticks: { color: '#B0B0B0' },
+                        grid: { color: '#333333' }
                     }
                 },
                 plugins: {
-                    legend: { position: 'top' },
-                    title: { display: true, text: 'Real-Time Voltage Plot' },
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#FFFFFF' }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Real-Time Voltage Plot',
+                        color: '#FFFFFF'
+                    },
                     decimation: {
                         enabled: true,
                         algorithm: 'min-max',
@@ -78,30 +101,20 @@
         function addDataToBuffer(newVoltageData, newTimestamps) {
             if (newVoltageData.length === 0 || newTimestamps.length === 0) return;
 
-            // // console.debug(newVoltageData)
-            // console.debug(newTimestamps)
-            // console.debug(new Date(newTimestamps[1]*1000 + Date.now()))
-
             newVoltageData.forEach((value, index) => {
-
-                if((index%1024)==0){
-                    const timestamp = new Date(newTimestamps[1]*1000 + Date.now()); // Convert to milliseconds
+                if ((index % 1024) === 0) {
+                    const timestamp = new Date(newTimestamps[1] * 1000 + Date.now()); // Convert to milliseconds
                     voltageDataBuffer.push(value);
                     timestampBuffer.push(timestamp);
 
-                    // Check to ensure timestampBuffer[0] exists before accessing
                     while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
                         voltageDataBuffer.shift();
                         timestampBuffer.shift();
                     }
                 }
             });
-            console.debug(voltageDataBuffer)
-            console.debug(timestampBuffer.length)
 
-            // Throttle chart updates for better performance
             if (Date.now() - lastUpdateTime >= updateInterval) {
-                console.debug("Updating plot")
                 chart.data.labels = [...timestampBuffer];
                 chart.data.datasets[0].data = [...voltageDataBuffer];
                 chart.update();
@@ -111,7 +124,6 @@
 
         // Listen for 'update_data' events from the server
         socket.on('update_data', (data) => {
-            console.debug("Receiving data")
             addDataToBuffer(data.voltage_data, data.timestamps);
         });
     </script>
