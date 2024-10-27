@@ -34,9 +34,22 @@
     <canvas id="liveChart" width="800" height="300"></canvas>
     <button id="toggleButton">Pause</button>
 
+    <hr>
+
+    <div>
+        <label for="averagingWindowSizeInput">Averaging Window Size:</label>
+        <input type="number" id="averagingWindowSizeInput" value="256" min="1" max="16384" step="1">
+    </div>
+    <div>
+        <label for="windowDurationInput">Window Duration (ms):</label>
+        <input type="number" id="windowDurationInput" value="10000" min="10" max="10000" step="10">
+    </div>
+
     <script>
-        let windowDuration = 10000; // Initial 10 seconds display window
         const updateInterval = 10; // Update chart every 100ms
+        // Initialize averagingWindowSize with the default value
+        let windowDuration = parseInt(document.getElementById('windowDurationInput').value);
+        let averagingWindowSize = parseInt(document.getElementById('averagingWindowSizeInput').value);
 
         // Colors for each channel
         const colorChannel1 = 'rgba(255, 206, 86, 1)';
@@ -168,6 +181,28 @@
             }
         }
 
+        // Update the windowDuration variable when the input field changes
+        document.getElementById('windowDurationInput').addEventListener('input', (event) => {
+            const newDuration = parseInt(event.target.value);
+            if (newDuration >= 100) { // Ensure minimum duration of 100 ms
+                windowDuration = newDuration;
+                chart.options.scales.x.min = new Date(Date.now() - windowDuration);
+                chart.options.scales.x.max = new Date();
+                chart.options.scales.x.ticks.stepSize = windowDuration / 10; // Set to maintain 10 ticks
+                chart.update();
+                console.info("Updated window duration to:", windowDuration);
+            }
+        });
+
+        // Update the averagingWindowSize variable when the input field changes
+        document.getElementById('averagingWindowSizeInput').addEventListener('input', (event) => {
+            const newSize = parseInt(event.target.value);
+            if (newSize > 0) { // Ensure it's a positive integer
+                averagingWindowSize = newSize;
+                console.info("Updated averaging window size to:", averagingWindowSize);
+            }
+        });
+
         document.getElementById('toggleButton').addEventListener('click', () => {
             isPaused = !isPaused;
             document.getElementById('toggleButton').innerText = isPaused ? 'Resume' : 'Pause';
@@ -175,22 +210,26 @@
 
         socket.on('update_data', (data) => {
             console.debug("Received data from server:", data);
-            addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps, 256);
+            addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps, averagingWindowSize);
         });
 
         // Handle scroll wheel on the X-axis to adjust windowDuration
         document.getElementById('liveChart').addEventListener('wheel', (event) => {
             event.preventDefault();
             const delta = Math.sign(event.deltaY);
-            windowDuration += delta * 100; // Adjust in 500ms increments
-            if (windowDuration < 100) windowDuration = 100; // Minimum duration of 1 second
-            if (windowDuration > 10000) windowDuration = 10000; // Minimum duration of 1 second
+            windowDuration += delta * 10; // Adjust in 100ms increments
+            if (windowDuration < 10) windowDuration = 10; // Minimum duration of 100 ms
+            if (windowDuration > 10000) windowDuration = 10000; // Maximum duration of 10 seconds
+
+            // Update the windowDurationInput field to reflect the new value
+            document.getElementById('windowDurationInput').value = windowDuration;
 
             // Dynamically update min and max on the x-axis
             chart.options.scales.x.min = new Date(Date.now() - windowDuration);
             chart.options.scales.x.max = new Date();
             chart.options.scales.x.ticks.stepSize = windowDuration / 10; // Set to maintain 10 ticks
-            console.info("Window Duration:",windowDuration, "stepSize:",(windowDuration / 10));
+            chart.update();
+            console.info("Window Duration:", windowDuration, "stepSize:", (windowDuration / 10));
         });
     </script>
 </body>
