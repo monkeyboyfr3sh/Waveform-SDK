@@ -35,14 +35,13 @@
     <button id="toggleButton">Pause</button>
 
     <script>
-        const windowDuration = 10000; // 10 seconds for display window
+        const windowDuration = 1000; // 10 seconds display window
         const updateInterval = 100; // Update chart every 100ms
 
         // Colors for each channel
-        const colorChannel1 = 'rgba(255, 206, 86, 1)'; // Yellow for Channel 1
-        const colorChannel2 = 'rgba(75, 192, 192, 1)'; // Teal for Channel 2
+        const colorChannel1 = 'rgba(255, 206, 86, 1)';
+        const colorChannel2 = 'rgba(75, 192, 192, 1)';
 
-        // Initialize socket connection
         const socket = io.connect('http://localhost:5000');
 
         const voltageDataBufferCh1 = [];
@@ -106,8 +105,7 @@
         function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps) {
             if (isPaused || newVoltageDataCh1.length === 0 || newVoltageDataCh2.length === 0 || newTimestamps.length === 0) return;
 
-            const interpSteps = 100; // Interpolation steps for smooth transitions
-
+            const interpSteps = 100;
             const lastCh1 = voltageDataBufferCh1[voltageDataBufferCh1.length - 1] || newVoltageDataCh1[0];
             const lastCh2 = voltageDataBufferCh2[voltageDataBufferCh2.length - 1] || newVoltageDataCh2[0];
             let lastTimestamp = timestampBuffer[timestampBuffer.length - 1] || newTimestamps[0];
