@@ -14,7 +14,7 @@
     <script>
         // Configurable sliding window duration in milliseconds
         const windowDuration = 5000; // 5 seconds
-        const updateInterval = 500; // Update chart every 500ms for performance
+        const updateInterval = 50; // Update chart every 500ms for performance
 
         // Initialize socket connection
         const socket = io.connect('http://localhost:5000');
@@ -75,25 +75,33 @@
         let lastUpdateTime = Date.now();
 
         // Function to add data to the FIFO buffer and update the chart
-        function addDataToBuffer(newVoltageData) {
-            const currentTime = Date.now(); // Get the current timestamp
+        function addDataToBuffer(newVoltageData, newTimestamps) {
+            if (newVoltageData.length === 0 || newTimestamps.length === 0) return;
+
+            // // console.debug(newVoltageData)
+            // console.debug(newTimestamps)
+            // console.debug(new Date(newTimestamps[1]*1000 + Date.now()))
 
             newVoltageData.forEach((value, index) => {
-                if (index % 100 === 0) {  // Adjust `2` to sample at different frequencies
-                    // Add current data point and timestamp
-                voltageDataBuffer.push(value);
-                timestampBuffer.push(new Date(currentTime));
 
-                // Remove old data outside the window duration
-                while ((Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
-                    voltageDataBuffer.shift();
-                    timestampBuffer.shift();
+                if((index%2048)==0){
+                    const timestamp = new Date(newTimestamps[1]*1000 + Date.now()); // Convert to milliseconds
+                    voltageDataBuffer.push(value);
+                    timestampBuffer.push(timestamp);
+
+                    // Check to ensure timestampBuffer[0] exists before accessing
+                    while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
+                        voltageDataBuffer.shift();
+                        timestampBuffer.shift();
+                    }
                 }
-            }
-        });
+            });
+            console.debug(voltageDataBuffer)
+            console.debug(timestampBuffer.length)
 
             // Throttle chart updates for better performance
             if (Date.now() - lastUpdateTime >= updateInterval) {
+                console.debug("Updating plot")
                 chart.data.labels = [...timestampBuffer];
                 chart.data.datasets[0].data = [...voltageDataBuffer];
                 chart.update();
@@ -103,7 +111,8 @@
 
         // Listen for 'update_data' events from the server
         socket.on('update_data', (data) => {
-            addDataToBuffer(data.voltage_data);
+            console.debug("Receiving data")
+            addDataToBuffer(data.voltage_data, data.timestamps);
         });
     </script>
 </body>

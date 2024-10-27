@@ -4,6 +4,7 @@ from flask_socketio import SocketIO, emit
 from WF_SDK import device, scope, wavegen, error
 from time import sleep
 from threading import Thread
+import numpy as np
 
 # Initialize Flask and SocketIO
 app = Flask(__name__)
@@ -21,13 +22,23 @@ def stream_data():
     try:
         device_data = device.open()
         if device_data.name != "Digital Discovery":
+            # Set up the scope and retrieve sample rate
             scope.open(device_data)
+            sample_rate = scope.data.sampling_frequency  # 20 MHz by default
+            sample_interval = 1 / sample_rate  # Interval in seconds per sample
+
             wavegen.generate(device_data, channel=1, function=wavegen.function.sine, offset=0, frequency=10e03, amplitude=2)
             sleep(1)
 
             while True:
                 buffer = scope.record(device_data, channel=1)
-                socketio.emit('update_data', {'voltage_data': buffer})
+                
+                # Generate timestamps for each sample in the buffer
+                num_samples = len(buffer)
+                timestamps = list(np.arange(num_samples) * sample_interval)  # Generate timestamps in seconds
+
+                # Emit data and timestamps
+                socketio.emit('update_data', {'voltage_data': buffer, 'timestamps': timestamps})
                 sleep(0.01)  # Adjust delay as needed
 
     except error as e:
