@@ -12,7 +12,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Global variable for controlling the data stream thread
 data_stream_thread = None
-session_count = 10 # Default value, can be updated dynamically
+session_count = 15 # Default value, can be updated dynamically
 
 @app.route('/')
 def index():
@@ -37,8 +37,8 @@ def stream_data():
             sample_rate = scope.data.sampling_frequency
             sample_interval = 1 / sample_rate
 
-            wavegen.generate(device_data, channel=1, function=wavegen.function.sine, offset=0, frequency=10e03, amplitude=2)
-            wavegen.generate(device_data, channel=2, function=wavegen.function.square, offset=0, frequency=10e03, amplitude=2)
+            wavegen.generate(device_data, channel=1, function=wavegen.function.sine, offset=0, frequency=10e01, amplitude=2)
+            wavegen.generate(device_data, channel=2, function=wavegen.function.square, offset=0, frequency=10e01, amplitude=2)
             sleep(1)
 
             buffer_accumulated_ch1 = []

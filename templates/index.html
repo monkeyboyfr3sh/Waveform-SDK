@@ -35,7 +35,7 @@
     <button id="toggleButton">Pause</button>
 
     <script>
-        const windowDuration = 5000; // 10 seconds display window
+        const windowDuration = 100; // 10 seconds display window
         const updateInterval = 10; // Update chart every 100ms
 
         // Colors for each channel
@@ -113,22 +113,38 @@
         let lastUpdateTime = Date.now();
         let isPaused = false;
 
-        function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps_ms) {
+        function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps_ms, averagingWindowSize) {
 
             // Check if we should add the data
             if (isPaused || !newVoltageDataCh1.length || !newVoltageDataCh2.length || !newTimestamps_ms.length) return;
 
             let currentTime = Date.now();
 
-            // Add the data to the buffer
+            let sumCh1 = 0;
+            let sumCh2 = 0;
+            let sumTime = 0;
+            let count = 0;
+
+            // Process incoming data in chunks of `averagingWindowSize`
             newVoltageDataCh1.forEach((value, index) => {
-                if ((index % 512) === 0) {
-                    voltageDataBufferCh1.push(newVoltageDataCh1[index]);
-                    voltageDataBufferCh2.push(newVoltageDataCh2[index]);
-                    timestampBuffer_ms.push(newTimestamps_ms[index]);
+                sumCh1 += newVoltageDataCh1[index];
+                sumCh2 += newVoltageDataCh2[index];
+                sumTime += newTimestamps_ms[index];
+                count++;
+
+                // When we reach the averaging window size, calculate the average
+                if (count === averagingWindowSize || count == newVoltageDataCh1.length) {
+                    voltageDataBufferCh1.push(sumCh1 / count);
+                    voltageDataBufferCh2.push(sumCh2 / count);
+                    timestampBuffer_ms.push(sumTime / count);
+
+                    // Reset sums and count for the next window
+                    sumCh1 = 0;
+                    sumCh2 = 0;
+                    sumTime = 0;
+                    count = 0;
                 }
             });
-
 
             if (currentTime - lastUpdateTime >= updateInterval) {
                 console.debug("Updating chart with data:", voltageDataBufferCh1, voltageDataBufferCh2, timestampBuffer_ms);
@@ -159,7 +175,7 @@
 
         socket.on('update_data', (data) => {
             console.debug("Received data from server:", data);
-            addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps);
+            addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps, 1);
         });
     </script>
 </body>
