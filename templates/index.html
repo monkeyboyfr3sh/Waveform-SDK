@@ -35,7 +35,7 @@
     <button id="toggleButton">Pause</button>
 
     <script>
-        const windowDuration = 500; // 10 seconds display window
+        const windowDuration = 5000; // 10 seconds display window
         const updateInterval = 10; // Update chart every 100ms
 
         // Colors for each channel
@@ -56,12 +56,14 @@
                     data: [],
                     borderColor: colorChannel1,
                     fill: false,
+                    tension: 0.1
                 },
                 {
                     label: 'Voltage Data Channel 2',
                     data: [],
                     borderColor: colorChannel2,
-                    fill: false
+                    fill: false,
+                    tension: 0.1
                 }
             ]
         };
@@ -72,6 +74,7 @@
             options: {
                 responsive: true,
                 animation: false,
+                radius: 0,
                 scales: {
                     x: {
                         type: 'time',
@@ -80,14 +83,11 @@
                             tooltipFormat: 'HH:mm:ss.SSS', // Display precise milliseconds in tooltip
                             displayFormats: {
                                 millisecond: 'HH:mm:ss.SSS'
-                            }
+                            },
+                            stepSize: 500
                         },
                         ticks: {
                             color: '#B0B0B0',
-                            callback: function(value, index, values) {
-                                const date = new Date(value);
-                                return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[1].slice(0, -1); 
-                            }
                         },
                         grid: { color: '#333333' }
                     },
@@ -122,7 +122,7 @@
 
             // Add the data to the buffer
             newVoltageDataCh1.forEach((value, index) => {
-                if ((index % 2048) === 0) {
+                if ((index % 512) === 0) {
                     voltageDataBufferCh1.push(newVoltageDataCh1[index]);
                     voltageDataBufferCh2.push(newVoltageDataCh2[index]);
                     timestampBuffer_ms.push(newTimestamps_ms[index]);

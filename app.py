@@ -12,7 +12,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Global variable for controlling the data stream thread
 data_stream_thread = None
-session_count = 1  # Default value, can be updated dynamically
+session_count = 10 # Default value, can be updated dynamically
 
 @app.route('/')
 def index():
@@ -30,8 +30,8 @@ def stream_data():
     try:
         device_data = device.open()
         if device_data.name != "Digital Discovery":
-            SET_SAMPLE_FREQ = 20e06
-            SET_BUFFER_SIZE = 8192
+            SET_SAMPLE_FREQ = 10e06
+            SET_BUFFER_SIZE = 32
             SET_AMPLITUDE_RANGE = 25
             scope.open(device_data, sampling_frequency=SET_SAMPLE_FREQ, buffer_size=SET_BUFFER_SIZE, amplitude_range=SET_AMPLITUDE_RANGE)
             sample_rate = scope.data.sampling_frequency
