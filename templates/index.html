@@ -76,7 +76,7 @@
                 scales: {
                     x: {
                         type: 'time',
-                        time: { unit: 'second' },
+                        time: { unit: 'millisecond', stepSize: 500 }, // Adjust to match data intervals
                         ticks: { color: '#B0B0B0' },
                         grid: { color: '#333333' }
                     },
@@ -128,8 +128,9 @@
             newVoltageDataCh1.forEach((value, index) => {
                 voltageDataBufferCh1.push(value);
                 voltageDataBufferCh2.push(newVoltageDataCh2[index]);
-                timestampBuffer.push(new Date(newTimestamps[index] + Date.now()));
+                timestampBuffer.push(new Date(newTimestamps[index]));
 
+                // Keep only the data within the window duration
                 while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
                     voltageDataBufferCh1.shift();
                     voltageDataBufferCh2.shift();
@@ -141,6 +142,11 @@
                 chart.data.labels = [...timestampBuffer];
                 chart.data.datasets[0].data = [...voltageDataBufferCh1];
                 chart.data.datasets[1].data = [...voltageDataBufferCh2];
+
+                // Dynamically update min and max on the x-axis
+                chart.options.scales.x.min = new Date(Date.now() - windowDuration);
+                chart.options.scales.x.max = new Date();
+
                 chart.update();
                 lastUpdateTime = Date.now();
             }
