@@ -30,7 +30,10 @@ def stream_data():
     try:
         device_data = device.open()
         if device_data.name != "Digital Discovery":
-            scope.open(device_data)
+            SET_SAMPLE_FREQ = 20e06
+            SET_BUFFER_SIZE = 8192
+            SET_AMPLITUDE_RANGE = 25
+            scope.open(device_data, sampling_frequency=SET_SAMPLE_FREQ, buffer_size=SET_BUFFER_SIZE, amplitude_range=SET_AMPLITUDE_RANGE)
             sample_rate = scope.data.sampling_frequency
             sample_interval = 1 / sample_rate
 

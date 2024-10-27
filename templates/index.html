@@ -75,8 +75,20 @@
                 scales: {
                     x: {
                         type: 'time',
-                        time: { unit: 'millisecond', stepSize: 500 }, // Adjust to match data intervals
-                        ticks: { color: '#B0B0B0' },
+                        time: {
+                            unit: 'millisecond',
+                            tooltipFormat: 'HH:mm:ss.SSS', // Display precise milliseconds in tooltip
+                            displayFormats: {
+                                millisecond: 'HH:mm:ss.SSS'
+                            }
+                        },
+                        ticks: {
+                            color: '#B0B0B0',
+                            callback: function(value, index, values) {
+                                const date = new Date(value);
+                                return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[1].slice(0, -1); 
+                            }
+                        },
                         grid: { color: '#333333' }
                     },
                     y: {
@@ -117,17 +129,17 @@
                 }
             });
 
+
             if (currentTime - lastUpdateTime >= updateInterval) {
                 console.debug("Updating chart with data:", voltageDataBufferCh1, voltageDataBufferCh2, timestampBuffer_ms);
 
-                while (timestampBuffer_ms.length && currentTime - (new Date(timestampBuffer_ms[0])) > windowDuration) {
+                while (timestampBuffer_ms.length && currentTime - timestampBuffer_ms[0] > windowDuration) {
                     voltageDataBufferCh1.shift();
                     voltageDataBufferCh2.shift();
                     timestampBuffer_ms.shift();
                 }
 
-                // Directly assign raw timestamps to chart data
-                chart.data.labels = timestampBuffer_ms; // Divide by 1000 if needed for seconds
+                chart.data.labels = timestampBuffer_ms.map(ts => new Date(ts));
                 chart.data.datasets[0].data = voltageDataBufferCh1;
                 chart.data.datasets[1].data = voltageDataBufferCh2;
 
