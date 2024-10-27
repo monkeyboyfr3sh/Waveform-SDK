@@ -35,8 +35,8 @@
     <button id="toggleButton">Pause</button>
 
     <script>
-        const windowDuration = 1000; // 10 seconds display window
-        const updateInterval = 100; // Update chart every 100ms
+        const windowDuration = 10000; // 10 seconds display window
+        const updateInterval = 10; // Update chart every 100ms
 
         // Colors for each channel
         const colorChannel1 = 'rgba(255, 206, 86, 1)';
@@ -105,40 +105,23 @@
         function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps) {
             if (isPaused || newVoltageDataCh1.length === 0 || newVoltageDataCh2.length === 0 || newTimestamps.length === 0) return;
 
-            const interpSteps = 100;
-            const lastCh1 = voltageDataBufferCh1[voltageDataBufferCh1.length - 1] || newVoltageDataCh1[0];
-            const lastCh2 = voltageDataBufferCh2[voltageDataBufferCh2.length - 1] || newVoltageDataCh2[0];
-            let lastTimestamp = timestampBuffer[timestampBuffer.length - 1] || newTimestamps[0];
-
-            if (!(lastTimestamp instanceof Date)) {
-                lastTimestamp = new Date(lastTimestamp);
-            }
-
-            for (let i = 0; i < interpSteps; i++) {
-                const t = i / interpSteps;
-                const interpCh1 = lastCh1 + (newVoltageDataCh1[0] - lastCh1) * t;
-                const interpCh2 = lastCh2 + (newVoltageDataCh2[0] - lastCh2) * t;
-                const interpTimestamp = new Date(lastTimestamp.getTime() + (newTimestamps[0] - lastTimestamp.getTime()) * t);
-
-                voltageDataBufferCh1.push(interpCh1);
-                voltageDataBufferCh2.push(interpCh2);
-                timestampBuffer.push(interpTimestamp);
-            }
-
             newVoltageDataCh1.forEach((value, index) => {
-                voltageDataBufferCh1.push(value);
-                voltageDataBufferCh2.push(newVoltageDataCh2[index]);
-                timestampBuffer.push(new Date(newTimestamps[index]));
+                if ((index % 8192) === 0) {
+                    const timestamp = new Date(newTimestamps[1] * 1000 + Date.now());
+                    voltageDataBufferCh1.push(value);
+                    voltageDataBufferCh2.push(newVoltageDataCh2[index]);
+                    timestampBuffer.push(timestamp);
 
-                // Keep only the data within the window duration
-                while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
-                    voltageDataBufferCh1.shift();
-                    voltageDataBufferCh2.shift();
-                    timestampBuffer.shift();
+                    while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
+                        voltageDataBufferCh1.shift();
+                        voltageDataBufferCh2.shift();
+                        timestampBuffer.shift();
+                    }
                 }
             });
 
             if (Date.now() - lastUpdateTime >= updateInterval) {
+                console.debug("Updating chart with data:", voltageDataBufferCh1, voltageDataBufferCh2, timestampBuffer);
                 chart.data.labels = [...timestampBuffer];
                 chart.data.datasets[0].data = [...voltageDataBufferCh1];
                 chart.data.datasets[1].data = [...voltageDataBufferCh2];
@@ -158,6 +141,7 @@
         });
 
         socket.on('update_data', (data) => {
+            console.debug("Received data from server:", data);
             addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps);
         });
     </script>
