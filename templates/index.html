@@ -6,6 +6,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.5.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link rel="icon" href="data:,"> <!-- Placeholder favicon -->
     <style>
         body {
             background-color: #121212;
@@ -39,19 +40,15 @@
 
         // Colors for each channel
         const colorChannel1 = 'rgba(255, 206, 86, 1)'; // Yellow for Channel 1
-        const colorChannel1Background = 'rgba(255, 206, 86, 0.2)';
         const colorChannel2 = 'rgba(75, 192, 192, 1)'; // Teal for Channel 2
-        const colorChannel2Background = 'rgba(75, 192, 192, 0.2)';
 
         // Initialize socket connection
         const socket = io.connect('http://localhost:5000');
 
-        // Set up buffers
         const voltageDataBufferCh1 = [];
         const voltageDataBufferCh2 = [];
         const timestampBuffer = [];
 
-        // Set up the chart data and configuration
         const data = {
             labels: [],
             datasets: [
@@ -59,8 +56,6 @@
                     label: 'Voltage Data Channel 1',
                     data: [],
                     borderColor: colorChannel1,
-                    backgroundColor: colorChannel1Background,
-                    borderWidth: 2,
                     fill: false,
                     tension: 0.4
                 },
@@ -68,8 +63,7 @@
                     label: 'Voltage Data Channel 2',
                     data: [],
                     borderColor: colorChannel2,
-                    backgroundColor: colorChannel2Background,
-                    borderWidth: 2,
+                    fill: false
                 }
             ]
         };
@@ -80,12 +74,9 @@
             options: {
                 responsive: true,
                 animation: false,
-                radius: 0,
                 scales: {
                     x: {
                         type: 'time',
-                        position: 'bottom',
-                        title: { display: true, text: 'Time (ms)', color: '#FFFFFF' },
                         time: { unit: 'second' },
                         ticks: { color: '#B0B0B0' },
                         grid: { color: '#333333' }
@@ -94,55 +85,57 @@
                         beginAtZero: true,
                         suggestedMin: -5,
                         suggestedMax: 5,
-                        title: { display: true, text: 'Voltage (V)', color: '#FFFFFF' },
                         ticks: { color: '#B0B0B0' },
                         grid: { color: '#333333' }
                     }
                 },
                 plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: { color: '#FFFFFF' }
-                    },
-                    title: {
-                        display: true,
-                        text: 'Real-Time Voltage Plot',
-                        color: '#FFFFFF'
-                    },
-                    decimation: {
-                        enabled: true,
-                        algorithm: 'min-max',
-                        samples: 50
-                    }
+                    legend: { labels: { color: '#FFFFFF' } },
+                    title: { display: true, text: 'Real-Time Voltage Plot', color: '#FFFFFF' }
                 }
             },
-            interaction: {
-                intersect: false,
-            },
+            interaction: { intersect: false },
         };
 
         const ctx = document.getElementById('liveChart').getContext('2d');
         const chart = new Chart(ctx, config);
 
         let lastUpdateTime = Date.now();
-        let isPaused = false; // Track the pause state
+        let isPaused = false;
 
-        // Function to add data to the buffer
         function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps) {
             if (isPaused || newVoltageDataCh1.length === 0 || newVoltageDataCh2.length === 0 || newTimestamps.length === 0) return;
 
-            newVoltageDataCh1.forEach((value, index) => {
-                if ((index % 2048) === 0) {
-                    const timestamp = new Date(newTimestamps[1] * 1000 + Date.now());
-                    voltageDataBufferCh1.push(value);
-                    voltageDataBufferCh2.push(newVoltageDataCh2[index]);
-                    timestampBuffer.push(timestamp);
+            const interpSteps = 100; // Interpolation steps for smooth transitions
 
-                    while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
-                        voltageDataBufferCh1.shift();
-                        voltageDataBufferCh2.shift();
-                        timestampBuffer.shift();
-                    }
+            const lastCh1 = voltageDataBufferCh1[voltageDataBufferCh1.length - 1] || newVoltageDataCh1[0];
+            const lastCh2 = voltageDataBufferCh2[voltageDataBufferCh2.length - 1] || newVoltageDataCh2[0];
+            let lastTimestamp = timestampBuffer[timestampBuffer.length - 1] || newTimestamps[0];
+
+            if (!(lastTimestamp instanceof Date)) {
+                lastTimestamp = new Date(lastTimestamp);
+            }
+
+            for (let i = 0; i < interpSteps; i++) {
+                const t = i / interpSteps;
+                const interpCh1 = lastCh1 + (newVoltageDataCh1[0] - lastCh1) * t;
+                const interpCh2 = lastCh2 + (newVoltageDataCh2[0] - lastCh2) * t;
+                const interpTimestamp = new Date(lastTimestamp.getTime() + (newTimestamps[0] - lastTimestamp.getTime()) * t);
+
+                voltageDataBufferCh1.push(interpCh1);
+                voltageDataBufferCh2.push(interpCh2);
+                timestampBuffer.push(interpTimestamp);
+            }
+
+            newVoltageDataCh1.forEach((value, index) => {
+                voltageDataBufferCh1.push(value);
+                voltageDataBufferCh2.push(newVoltageDataCh2[index]);
+                timestampBuffer.push(new Date(newTimestamps[index] + Date.now()));
+
+                while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
+                    voltageDataBufferCh1.shift();
+                    voltageDataBufferCh2.shift();
+                    timestampBuffer.shift();
                 }
             });
 
@@ -155,13 +148,11 @@
             }
         }
 
-        // Toggle button functionality
         document.getElementById('toggleButton').addEventListener('click', () => {
             isPaused = !isPaused;
             document.getElementById('toggleButton').innerText = isPaused ? 'Resume' : 'Pause';
         });
 
-        // Listen for 'update_data' events from the server
         socket.on('update_data', (data) => {
             addDataToBuffer(data.voltage_data_ch1, data.voltage_data_ch2, data.timestamps);
         });

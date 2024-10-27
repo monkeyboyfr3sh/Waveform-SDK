@@ -8,7 +8,7 @@ import numpy as np
 
 # Initialize Flask and SocketIO
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for testing
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Global variable for controlling the data stream thread
 data_stream_thread = None
@@ -21,18 +21,16 @@ def index():
 @socketio.on('set_session_count')
 def set_session_count(data):
     global session_count
-    session_count = data.get('session_count', 10)  # Default to 2 if not specified
+    session_count = data.get('session_count', 10)
     emit('session_count_updated', {'session_count': session_count})
-
 
 def stream_data():
     try:
         device_data = device.open()
         if device_data.name != "Digital Discovery":
-            # Set up the scope and retrieve sample rate
             scope.open(device_data)
-            sample_rate = scope.data.sampling_frequency  # 20 MHz by default
-            sample_interval = 1 / sample_rate  # Interval in seconds per sample
+            sample_rate = scope.data.sampling_frequency
+            sample_interval = 1 / sample_rate
 
             wavegen.generate(device_data, channel=1, function=wavegen.function.sine, offset=0, frequency=10e03, amplitude=2)
             wavegen.generate(device_data, channel=2, function=wavegen.function.square, offset=0, frequency=10e03, amplitude=2)
@@ -57,18 +55,18 @@ def stream_data():
                 socketio.emit('update_data', {
                     'voltage_data_ch1': buffer_accumulated_ch1,
                     'voltage_data_ch2': buffer_accumulated_ch2,
-                    'timestamps': timestamps_accumulated
+                    'timestamps': [t * 1000 for t in timestamps_accumulated]  # Convert to milliseconds
                 })
 
                 buffer_accumulated_ch1.clear()
                 buffer_accumulated_ch2.clear()
                 timestamps_accumulated.clear()
+                sleep(0.1)
 
     except error as e:
         print(e)
     finally:
         device.close(device_data)
-
 
 @socketio.on('connect')
 def handle_connect():
@@ -76,7 +74,6 @@ def handle_connect():
     if data_stream_thread is None:
         data_stream_thread = Thread(target=stream_data)
         data_stream_thread.start()
-
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
