@@ -12,7 +12,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")  # Allow all origins for test
 
 # Global variable for controlling the data stream thread
 data_stream_thread = None
-session_count = 2  # Default value, can be updated dynamically
+session_count = 1  # Default value, can be updated dynamically
 
 @app.route('/')
 def index():
@@ -53,8 +53,6 @@ def stream_data():
                     buffer_accumulated_ch1.extend(buffer_ch1)
                     buffer_accumulated_ch2.extend(buffer_ch2)
                     timestamps_accumulated.extend(timestamps)
-
-                    sleep(0.0001)
 
                 socketio.emit('update_data', {
                     'voltage_data_ch1': buffer_accumulated_ch1,

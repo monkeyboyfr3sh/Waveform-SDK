@@ -12,19 +12,30 @@
             color: #FFFFFF;
             font-family: Arial, sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
             height: 100vh;
             margin: 0;
+        }
+        #toggleButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #121212;
+            background-color: #FFFFFF;
+            border: none;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <canvas id="liveChart" width="800" height="300"></canvas>
+    <button id="toggleButton">Pause</button>
 
     <script>
         // Configurable sliding window duration in milliseconds
-        const windowDuration = 5000; // 5 seconds
+        const windowDuration = 10000; // 5 seconds
         const updateInterval = 10; // Update chart every 500ms for performance
 
         // Colors for each channel
@@ -70,6 +81,7 @@
             options: {
                 responsive: true,
                 animation: false,
+                radius: 0,
                 scales: {
                     x: {
                         type: 'time',
@@ -114,9 +126,11 @@
         const chart = new Chart(ctx, config);
 
         let lastUpdateTime = Date.now();
+        let isPaused = false; // Track the pause state
 
+        // Function to add data to the buffer
         function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps) {
-            if (newVoltageDataCh1.length === 0 || newVoltageDataCh2.length === 0 || newTimestamps.length === 0) return;
+            if (isPaused || newVoltageDataCh1.length === 0 || newVoltageDataCh2.length === 0 || newTimestamps.length === 0) return;
 
             newVoltageDataCh1.forEach((value, index) => {
                 if ((index % 1024) === 0) {
@@ -141,6 +155,12 @@
                 lastUpdateTime = Date.now();
             }
         }
+
+        // Toggle button functionality
+        document.getElementById('toggleButton').addEventListener('click', () => {
+            isPaused = !isPaused;
+            document.getElementById('toggleButton').innerText = isPaused ? 'Resume' : 'Pause';
+        });
 
         // Listen for 'update_data' events from the server
         socket.on('update_data', (data) => {
