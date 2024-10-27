@@ -35,7 +35,7 @@
     <button id="toggleButton">Pause</button>
 
     <script>
-        const windowDuration = 10000; // 10 seconds display window
+        const windowDuration = 500; // 10 seconds display window
         const updateInterval = 10; // Update chart every 100ms
 
         // Colors for each channel
@@ -46,7 +46,7 @@
 
         const voltageDataBufferCh1 = [];
         const voltageDataBufferCh2 = [];
-        const timestampBuffer = [];
+        const timestampBuffer_ms = [];
 
         const data = {
             labels: [],
@@ -56,7 +56,6 @@
                     data: [],
                     borderColor: colorChannel1,
                     fill: false,
-                    tension: 0.4
                 },
                 {
                     label: 'Voltage Data Channel 2',
@@ -82,8 +81,8 @@
                     },
                     y: {
                         beginAtZero: true,
-                        suggestedMin: -5,
-                        suggestedMax: 5,
+                        suggestedMin: -0.2,
+                        suggestedMax: 0.2,
                         ticks: { color: '#B0B0B0' },
                         grid: { color: '#333333' }
                     }
@@ -102,36 +101,42 @@
         let lastUpdateTime = Date.now();
         let isPaused = false;
 
-        function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps) {
-            if (isPaused || newVoltageDataCh1.length === 0 || newVoltageDataCh2.length === 0 || newTimestamps.length === 0) return;
+        function addDataToBuffer(newVoltageDataCh1, newVoltageDataCh2, newTimestamps_ms) {
 
+            // Check if we should add the data
+            if (isPaused || !newVoltageDataCh1.length || !newVoltageDataCh2.length || !newTimestamps_ms.length) return;
+
+            let currentTime = Date.now();
+
+            // Add the data to the buffer
             newVoltageDataCh1.forEach((value, index) => {
-                if ((index % 8192) === 0) {
-                    const timestamp = new Date(newTimestamps[1] * 1000 + Date.now());
-                    voltageDataBufferCh1.push(value);
+                if ((index % 2048) === 0) {
+                    voltageDataBufferCh1.push(newVoltageDataCh1[index]);
                     voltageDataBufferCh2.push(newVoltageDataCh2[index]);
-                    timestampBuffer.push(timestamp);
-
-                    while (timestampBuffer.length > 0 && (Date.now() - timestampBuffer[0].getTime()) > windowDuration) {
-                        voltageDataBufferCh1.shift();
-                        voltageDataBufferCh2.shift();
-                        timestampBuffer.shift();
-                    }
+                    timestampBuffer_ms.push(newTimestamps_ms[index]);
                 }
             });
 
-            if (Date.now() - lastUpdateTime >= updateInterval) {
-                console.debug("Updating chart with data:", voltageDataBufferCh1, voltageDataBufferCh2, timestampBuffer);
-                chart.data.labels = [...timestampBuffer];
-                chart.data.datasets[0].data = [...voltageDataBufferCh1];
-                chart.data.datasets[1].data = [...voltageDataBufferCh2];
+            if (currentTime - lastUpdateTime >= updateInterval) {
+                console.debug("Updating chart with data:", voltageDataBufferCh1, voltageDataBufferCh2, timestampBuffer_ms);
+
+                while (timestampBuffer_ms.length && currentTime - (new Date(timestampBuffer_ms[0])) > windowDuration) {
+                    voltageDataBufferCh1.shift();
+                    voltageDataBufferCh2.shift();
+                    timestampBuffer_ms.shift();
+                }
+
+                // Directly assign raw timestamps to chart data
+                chart.data.labels = timestampBuffer_ms; // Divide by 1000 if needed for seconds
+                chart.data.datasets[0].data = voltageDataBufferCh1;
+                chart.data.datasets[1].data = voltageDataBufferCh2;
 
                 // Dynamically update min and max on the x-axis
                 chart.options.scales.x.min = new Date(Date.now() - windowDuration);
                 chart.options.scales.x.max = new Date();
 
                 chart.update();
-                lastUpdateTime = Date.now();
+                lastUpdateTime = currentTime;
             }
         }
 

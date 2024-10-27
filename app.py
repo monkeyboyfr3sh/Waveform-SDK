@@ -12,7 +12,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Global variable for controlling the data stream thread
 data_stream_thread = None
-session_count = 2  # Default value, can be updated dynamically
+session_count = 1  # Default value, can be updated dynamically
 
 @app.route('/')
 def index():
@@ -23,6 +23,8 @@ def set_session_count(data):
     global session_count
     session_count = data.get('session_count', 10)
     emit('session_count_updated', {'session_count': session_count})
+
+import time
 
 def stream_data():
     try:
@@ -38,29 +40,36 @@ def stream_data():
 
             buffer_accumulated_ch1 = []
             buffer_accumulated_ch2 = []
-            timestamps_accumulated = []
+            timestamps_ms_accumulated = []
+
+            # Set initial time offset in milliseconds
+            start_time = time.time()
 
             while True:
                 for _ in range(session_count):
+                    sample_start_time = time.time()
+                    
                     buffer_ch1 = scope.record(device_data, channel=1)
                     buffer_ch2 = scope.record(device_data, channel=2)
                     
                     num_samples = len(buffer_ch1)
-                    timestamps = list(np.arange(num_samples) * sample_interval)
-
+                    
+                    # Generate timestamps relative to start_time
+                    timestamps_ms = (sample_start_time + np.arange(num_samples) * sample_interval) * 1e3
+                    
                     buffer_accumulated_ch1.extend(buffer_ch1)
                     buffer_accumulated_ch2.extend(buffer_ch2)
-                    timestamps_accumulated.extend(timestamps)
+                    timestamps_ms_accumulated.extend(timestamps_ms)
 
                 socketio.emit('update_data', {
                     'voltage_data_ch1': buffer_accumulated_ch1,
                     'voltage_data_ch2': buffer_accumulated_ch2,
-                    'timestamps': [t * 1000 for t in timestamps_accumulated]  # Convert to milliseconds
+                    'timestamps': timestamps_ms_accumulated
                 })
 
                 buffer_accumulated_ch1.clear()
                 buffer_accumulated_ch2.clear()
-                timestamps_accumulated.clear()
+                timestamps_ms_accumulated.clear()
 
     except error as e:
         print(e)
